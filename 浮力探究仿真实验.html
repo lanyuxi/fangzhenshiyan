@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>探究浮力的大小与排开液体所受重力的关系</title>
+  <style>
+    :root {
+      --bg: #343a43;
+      --panel: #24292f;
+      --panel-2: #2d333b;
+      --line: rgba(255,255,255,.14);
+      --text: #d8dadd;
+      --muted: #92979c;
+      --orange: #ff7a19;
+      --green: #13b653;
+      --wood: #d78a1e;
+      --cyan: #63c9e9;
+    }
+    * { box-sizing: border-box; user-select: none; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body {
+      font-family: "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 50% 45%, rgba(255,255,255,.025), transparent 42%),
+        var(--bg);
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    .app { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+
+    /* Top navigation */
+    .topbar {
+      position: absolute; inset: 0 0 auto 0; height: 66px; z-index: 40;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 19px 5px 18px; background: rgba(31,36,42,.9);
+      border-bottom: 1px solid rgba(255,255,255,.025);
+    }
+    .top-group { display: flex; align-items: flex-start; gap: 14px; min-width: 430px; }
+    .top-group.right { justify-content: flex-end; min-width: 470px; gap: 8px; padding-right: 4px; }
+    .top-group.right .tool-button { width: 96px; }
+    .tool-button {
+      width: 29px; border: 0; background: transparent; padding: 0; cursor: pointer;
+      color: #aeb3b7; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    }
+    .tool-button:hover { color: #fff; }
+    .tool-button .ico { height: 24px; font-size: 20px; line-height: 24px; }
+    .tool-button .cap { font-size: 12px; white-space: nowrap; }
+    .back-button {
+      width: 36px; height: 42px; margin: 0 3px 0 -3px; border-radius: 6px;
+      justify-content: center; align-self: flex-start;
+    }
+    .back-button .ico { height: 32px; font-size: 34px; font-weight: 300; line-height: 29px; }
+    .back-button:hover { background: rgba(255,255,255,.07); }
+    .strategy-anchor { position: relative; width: 96px; flex: 0 0 96px; }
+    .strategy-anchor > .tool-button { width: 100%; }
+    .strategy-panel {
+      position: absolute; z-index: 95; top: 52px; right: 0; width: 410px; max-height: calc(100vh - 92px);
+      padding: 17px 18px 18px; overflow: auto; color: #d8dadd; text-align: left;
+      border: 1px solid rgba(255,255,255,.08); border-radius: 9px;
+      background: rgba(25,29,34,.98); box-shadow: 0 18px 42px rgba(0,0,0,.38);
+      opacity: 0; pointer-events: none; transform: translateY(-8px) scale(.98);
+      transform-origin: top right; transition: opacity .18s ease, transform .18s ease;
+    }
+    .strategy-panel.open { opacity: 1; pointer-events: auto; transform: translateY(0) scale(1); }
+    .strategy-panel:before {
+      content: ""; position: absolute; top: -6px; right: 42px; width: 11px; height: 11px;
+      border-left: 1px solid rgba(255,255,255,.08); border-top: 1px solid rgba(255,255,255,.08);
+      background: #191d22; transform: rotate(45deg);
+    }
+    .strategy-title {
+      display: flex; align-items: center; gap: 8px; padding-bottom: 12px; margin-bottom: 4px;
+      border-bottom: 1px solid rgba(255,255,255,.09); color: #f0f1f1; font-size: 17px; font-weight: 600;
+    }
+    .strategy-title span { color: #ff8b35; font-size: 20px; }
+    .strategy-section { padding: 11px 2px 10px; border-bottom: 1px solid rgba(255,255,255,.07); }
+    .strategy-section:last-child { border-bottom: 0; padding-bottom: 0; }
+    .strategy-section h3 { margin: 0 0 6px; color: #ffad69; font-size: 14px; font-weight: 600; }
+    .strategy-section p { margin: 0; color: #b9bec2; font-size: 13px; line-height: 1.75; user-select: text; }
+    .strategy-section ol { margin: 0; padding-left: 21px; color: #b9bec2; font-size: 13px; line-height: 1.75; }
+    .strategy-section li { padding-left: 2px; user-select: text; }
+    .strategy-summary { margin-top: 7px !important; color: #92999f !important; }
+    .top-divider { width: 1px; height: 34px; background: var(--line); margin: 4px 0 0 2px; }
+    .title {
+      position: absolute; left: 50%; top: 20px; transform: translateX(-50%);
+      min-width: 250px; max-width: 520px; padding: 1px 7px; border: 1px solid transparent; border-radius: 4px;
+      font-size: 16px; color: #ddd; white-space: nowrap; letter-spacing: .1px; text-align: center;
+      cursor: text; outline: none; overflow: hidden; text-overflow: ellipsis;
+    }
+    .title[contenteditable="true"] {
+      color: #fff; border-color: #398fda; background: rgba(17,21,25,.88);
+      box-shadow: 0 0 0 2px rgba(57,143,218,.16); overflow: visible; text-overflow: clip;
+    }
+    .title:after {
+      content: ""; position: absolute; width: 72px; height: 1px; background: rgba(255,255,255,.08);
+      left: calc(50% - 36px); bottom: -10px;
+    }
+
+    /* stage */
+    .stage {
+      position: absolute; left: 0; right: 0; top: 66px; bottom: 32px; overflow: visible;
+      cursor: default;
+    }
+    .stage.space-ready { cursor: grab; }
+    .stage.panning { cursor: grabbing; }
+    .stage-inner {
+      position: absolute; width: 1360px; height: 820px; left: 50%; top: 50%;
+      transform-origin: center center; transform: translate(-50%,-50%) scale(var(--stage-scale, 1));
+    }
+    .table {
+      position: absolute; left: 460px; top: 492px; width: 590px; height: 286px; z-index: 2;
+      filter: drop-shadow(0 16px 10px rgba(0,0,0,.22));
+    }
+    .table-top {
+      height: 90px; border-radius: 5px 5px 6px 6px; border-bottom: 7px solid #97570e;
+      background:
+        repeating-linear-gradient(3deg, rgba(121,61,5,.1) 0 1px, transparent 1px 12px),
+        linear-gradient(180deg, #eca62d 0%, #f5b844 17%, #de8f17 70%, #bd6c0c 100%);
+      box-shadow: inset 0 3px rgba(255,229,147,.44), inset 0 -3px rgba(105,51,4,.35);
+      position: relative;
+    }
+    .table-top:before, .table-top:after {
+      content: ""; position: absolute; left: 20px; right: 20px; height: 1px;
+      background: rgba(132,71,7,.22);
+    }
+    .table-top:before { top: 24px; } .table-top:after { top: 58px; }
+    .apron {
+      position: absolute; left: 14px; right: 14px; top: 89px; height: 33px;
+      background: linear-gradient(#c9770f,#a95b09); border-top: 2px solid #8c4a08;
+      box-shadow: inset 0 5px 7px rgba(255,181,55,.3);
+    }
+    .leg {
+      position: absolute; top: 114px; width: 26px; height: 171px;
+      background: linear-gradient(90deg,#9e5509,#d7891c 35%,#efa735 62%,#a95d0a);
+      border-radius: 0 0 5px 5px;
+    }
+    .leg.l1 { left: 15px; } .leg.l2 { left: 47px; height: 98px; }
+    .leg.r1 { right: 15px; } .leg.r2 { right: 47px; height: 98px; }
+    .leg.l2, .leg.r2 { filter: brightness(.75); }
+
+    .object {
+      position: absolute; z-index: 8; cursor: grab; touch-action: none;
+      filter: drop-shadow(0 5px 4px rgba(0,0,0,.18));
+    }
+    .object.dragging { cursor: grabbing; filter: drop-shadow(0 8px 7px rgba(0,0,0,.28)); z-index: 30; }
+    .object.selected:not(.scale):after {
+      content: ""; position: absolute; inset: -8px; border: 1px dashed rgba(255,142,59,.82);
+      border-radius: 8px; pointer-events: none;
+    }
+    .object.selected .object-tools { display: flex; }
+    .object-tools {
+      display: none; position: absolute; right: -31px; top: 4px; flex-direction: column;
+      background: rgba(15,17,19,.93); border-radius: 7px; overflow: hidden; z-index: 60;
+    }
+    .object-tools button {
+      border: 0; width: 28px; height: 29px; color: #e7e7e7; background: transparent; cursor: pointer;
+      font-size: 16px; padding: 0;
+    }
+    .object-tools button:hover { background: rgba(255,255,255,.12); }
+
+    .can { left: 480px; top: 215px; width: 305px; height: 314px; }
+    .bucket { left: 738px; top: 343px; width: 115px; height: 190px; }
+    .cylinder { left: 882px; top: 428px; width: 76px; height: 115px; }
+    .scale {
+      left: 870px; top: 28px; width: 110px; height: 322px; padding: 38px 9px 0;
+      border-radius: 9px; background: rgba(68,74,83,.77);
+      box-shadow: inset 0 1px rgba(255,255,255,.035);
+    }
+    .scale.at-page-top { z-index: 43; }
+    .scale .object-tools { right: -40px; top: 0; border-radius: 0 9px 9px 9px; }
+    .scale .object-tools button { width: 40px; height: 42px; font-size: 20px; }
+    .scale .object-tools .three-d { font-size: 16px; font-weight: 700; pointer-events: none; }
+    .scale.selected .object-tools, .scale:hover .object-tools { display: flex; }
+    .scale svg { display: block; }
+    .cylinder.attached { filter: drop-shadow(3px 7px 4px rgba(0,0,0,.26)); }
+
+    .read-label {
+      position: absolute; color: #e9e9e9; font-size: 16px; font-weight: 600;
+      text-shadow: 0 1px 2px #1b1e22; white-space: nowrap; pointer-events: none;
+    }
+    .can .read-label { left: 249px; top: 18px; }
+    .bucket .read-label { left: 111px; top: 51px; }
+    .scale .read-label { left: 14px; top: 10px; font-size: 28px; font-weight: 500; letter-spacing: .5px; }
+    .cylinder .read-label { left: 74px; top: 50px; }
+    #pendulumLayer, #trailLayer {
+      position: absolute; inset: 0; width: 1360px; height: 820px; z-index: 7;
+      pointer-events: none; overflow: visible;
+    }
+    #pendulumLine { stroke: #b8bdbe; stroke-width: 2.5; stroke-linecap: round; opacity: 0; }
+    #pendulumLine.visible { opacity: .88; }
+    .trail-dot { fill: #67a7c1; opacity: .28; }
+    #magnifier {
+      position: absolute; z-index: 25; width: 62px; height: 62px; border-radius: 50%;
+      display: none; place-items: center; color: #3e4448; background: rgba(248,249,249,.92);
+      border: 1px solid rgba(255,255,255,.8); box-shadow: 0 4px 14px rgba(0,0,0,.22);
+      font-size: 28px; pointer-events: none;
+    }
+    #magnifier.show { display: grid; }
+    #magnifier small { position: absolute; bottom: 7px; font-size: 12px; color: #72787c; }
+    #submergeOverlay {
+      position: absolute; z-index: 13; display: none; pointer-events: none;
+      border-radius: 0 0 18px 18px;
+      background: linear-gradient(180deg,rgba(89,190,221,.27),rgba(39,139,177,.18));
+      box-shadow: inset 0 2px rgba(200,247,255,.24);
+      mix-blend-mode: screen;
+    }
+    #submergeOverlay.show { display: block; }
+    #waterRipple {
+      position: absolute; z-index: 14; display: none; height: 12px; border: 2px solid rgba(171,233,247,.65);
+      border-radius: 50%; pointer-events: none; box-shadow: 0 0 8px rgba(79,190,224,.38);
+      animation: ripple 1.2s ease-in-out infinite alternate;
+    }
+    #waterRipple.show { display: block; }
+    @keyframes ripple { from { transform: scaleX(.86); opacity:.45 } to { transform: scaleX(1.08); opacity:.9 } }
+    #flow {
+      position: absolute; z-index: 5; left: 766px; top: 326px; width: 7px; height: 75px;
+      border-radius: 50%; background: linear-gradient(90deg,rgba(111,214,242,.25),#8adcf1,rgba(76,177,213,.25));
+      transform-origin: top; transform: scaleY(0); opacity: 0; transition: opacity .18s;
+      filter: drop-shadow(0 0 2px rgba(92,211,243,.5));
+    }
+    #flow.flowing { opacity: .9; animation: flowPulse .45s infinite alternate; }
+    @keyframes flowPulse { from { filter: brightness(.85); } to { filter: brightness(1.3); } }
+    .hint {
+      position: absolute; left: 50%; top: 90px; transform: translateX(-50%) translateY(-8px);
+      z-index: 70; padding: 8px 14px; border-radius: 5px; background: rgba(20,23,27,.9);
+      font-size: 13px; color: #e2e2e2; opacity: 0; transition: .2s; pointer-events: none;
+    }
+    .hint.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* Bottom bar */
+    .bottombar {
+      position: absolute; z-index: 50; left: 0; right: 0; bottom: 0; height: 34px;
+      background: #1f2328; display: flex; align-items: center; padding: 0 24px; gap: 7px;
+    }
+    .bottom-pill {
+      height: 40px; transform: translateY(-5px); border: 0; border-radius: 8px 8px 0 0;
+      background: #22272d; padding: 0 18px; min-width: 116px; color: #d5d7d9; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 13px;
+    }
+    .bottom-pill.compact { min-width: 0; width: 44px; padding: 0; font-size: 22px; }
+    .bottom-pill:hover { background: #2c3239; }
+    .bottom-tools { display: flex; gap: 1px; transform: translateY(-5px); }
+    .bottom-tools button {
+      height: 40px; min-width: 43px; border: 0; background: #22272d; cursor: pointer; font-size: 19px;
+    }
+    .bottom-tools button:first-child { border-radius: 8px 0 0 0; }
+    .bottom-tools button:last-child { border-radius: 0 8px 0 0; }
+    .bottom-tools button:hover { background: #303740; }
+    .canvas-tip { margin-left:auto; color:#858c91; font-size:12px; letter-spacing:.2px; }
+
+    /* panels and dialogs */
+    .drawer {
+      position: absolute; z-index: 90; right: 17px; top: 76px; width: 300px; max-height: calc(100vh - 120px);
+      border-radius: 10px; background: rgba(25,28,31,.98); border: 1px solid rgba(255,255,255,.05);
+      box-shadow: 0 18px 45px rgba(0,0,0,.38); padding: 18px; transform: translateX(340px);
+      transition: transform .25s ease, opacity .2s; overflow: auto; opacity: 0; pointer-events: none;
+    }
+    .drawer.open { transform: translateX(0); opacity: 1; pointer-events: auto; }
+    .drawer.scale-settings {
+      right: auto; top: 62px; width: 272px; padding: 13px 17px 16px;
+      transform: translateX(-20px) scale(.97); transform-origin: top left;
+    }
+    .drawer.scale-settings.open { transform: translateX(0) scale(1); }
+    .drawer-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; }
+    .drawer-title { font-size: 17px; font-weight: 600; }
+    .xbtn { border: 0; background: transparent; color: #aaa; font-size: 24px; cursor: pointer; }
+    .xbtn:hover { color: white; }
+    .param { margin: 17px 0; }
+    .param label { display: flex; justify-content: space-between; color: #c8cbcd; font-size: 14px; margin-bottom: 8px; }
+    .param label span:last-child { color: #ffb35d; }
+    input[type=range] { width: 100%; accent-color: var(--orange); }
+    .setting-row {
+      min-height: 45px; display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; color: #d2d4d5; font-size: 14px;
+    }
+    .setting-row.muted { color: #6d7276; }
+    .setting-control {
+      min-width: 112px; height: 29px; display: flex; align-items: center; justify-content: center;
+      color: #ddd; border: 1px solid #303438; background: #191c1f;
+    }
+    .setting-control select {
+      width: 100%; height: 100%; border: 0; padding: 0 10px; color: #ddd; outline: none;
+      background: #191c1f; color-scheme: dark;
+    }
+    .speed-control { flex-direction: column; align-items: stretch; gap: 5px; border: 0; background: transparent; }
+    .speed-number { width: 80px; height: 22px; margin-left: auto; text-align: center; color: #ddd; background: #272b2e; border: 1px solid #44494d; border-radius: 4px; }
+    .switch {
+      position: relative; width: 44px; height: 23px; border-radius: 15px; background: #b8bdc0; cursor: pointer;
+      transition: .18s; flex: 0 0 auto;
+    }
+    .switch:after {
+      content: ""; position: absolute; width: 19px; height: 19px; left: 2px; top: 2px;
+      border-radius: 50%; background: white; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: .18s;
+    }
+    .switch.on { background: #268bea; }
+    .switch.on:after { transform: translateX(21px); }
+    .segments { display: flex; border-radius: 6px; overflow: hidden; background: #303438; }
+    .segments button { border: 0; padding: 4px 10px; color: #ddd; background: transparent; cursor: pointer; }
+    .segments button.active { color: white; background: #278bea; }
+    .drawer-note {
+      margin-top: 18px; font-size: 12px; color: #858c92; line-height: 1.7;
+      border-top: 1px solid var(--line); padding-top: 12px;
+    }
+    .overlay {
+      position: absolute; inset: 0; z-index: 100; display: none; place-items: center;
+      background: rgba(12,15,18,.53); backdrop-filter: blur(2px);
+    }
+    .overlay.open { display: grid; }
+    .modal {
+      width: min(980px, calc(100vw - 60px)); background: #f4f5f5; color: #2f3438;
+      border-radius: 9px; box-shadow: 0 25px 70px rgba(0,0,0,.42); overflow: hidden;
+    }
+    .modal-head {
+      display: flex; justify-content: space-between; align-items: center; padding: 17px 22px;
+      color: #f2f2f2; background: #282e34; font-size: 18px;
+    }
+    .modal-body { padding: 22px; }
+    .report-grid {
+      display: grid; grid-template-columns: repeat(4,1fr); border: 1px solid #cdd1d3; border-radius: 5px; overflow: hidden;
+    }
+    .report-grid > div, #reportRows > div { padding: 11px 8px; text-align: center; border-right: 1px solid #d6d9db; border-bottom: 1px solid #d6d9db; }
+    .report-grid > div:nth-child(4n) { border-right: 0; }
+    .report-grid .hd { background: #e4e7e8; font-weight: 600; font-size: 13px; }
+    .result {
+      margin-top: 18px; border-left: 4px solid #20a85b; padding: 10px 14px; background: #e3f3ea;
+      color: #28633f; line-height: 1.65;
+    }
+    .experiment-guide {
+      position: absolute; z-index: 35; right: 18px; top: 78px; width: 285px;
+      padding: 15px; border-radius: 10px; color: #d8dadd; background: rgba(28,32,37,.94);
+      border: 1px solid rgba(255,255,255,.075); box-shadow: 0 12px 32px rgba(0,0,0,.25);
+    }
+    .guide-title { font-size: 16px; font-weight: 600; margin-bottom: 11px; display:flex; justify-content:space-between; }
+    .guide-title small { color:#858c91; font-weight:400; }
+    .guide-step {
+      position: relative; padding: 7px 7px 7px 31px; margin: 2px 0; border-radius: 5px;
+      color: #8e959a; font-size: 13px; line-height: 1.5;
+    }
+    .guide-step:before {
+      content: attr(data-step); position:absolute; left:6px; top:8px; width:18px; height:18px;
+      border-radius:50%; display:grid; place-items:center; font-size:11px; color:#92999e; border:1px solid #596066;
+    }
+    .guide-step.active { color:#f0f1f1; background:rgba(255,255,255,.055); }
+    .guide-step.active:before { color:white; border-color:#ff852a; background:#e87925; }
+    .guide-step.done { color:#a9d9bd; }
+    .guide-step.done:before { content:"✓"; color:white; border-color:#21a65b; background:#21a65b; }
+    .guide-reading {
+      margin: 11px 0; padding: 9px 10px; border-radius:5px; background:#22272c;
+      display:flex; justify-content:space-between; font-size:13px;
+    }
+    .guide-reading b { color:#ffaf62; font-size:15px; }
+    .guide-actions { display:grid; grid-template-columns:1fr 1fr; gap:7px; }
+    .guide-actions button {
+      border:1px solid #444b51; border-radius:5px; padding:7px 4px; color:#ddd; background:#30363c; cursor:pointer;
+      font-size:12px;
+    }
+    .guide-actions button:hover { border-color:#d67a30; background:#394149; }
+    .guide-actions button.primary-guide { border-color:#dc792d; color:white; background:#d97327; }
+    .report-grid.wide { grid-template-columns: 1.1fr repeat(6,1fr); }
+    .report-grid.wide > div:nth-child(4n) { border-right:1px solid #d6d9db; }
+    .report-grid.wide > div:nth-child(7n) { border-right:0; }
+    #reportRows > div:nth-child(7n) { border-right:0; }
+    .report-row { display:contents; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+    .primary, .secondary {
+      border: 0; border-radius: 5px; padding: 8px 20px; cursor: pointer;
+    }
+    .primary { background: #ed7b25; color: white; }
+    .secondary { background: #dfe2e3; color: #454b4f; }
+    .toast {
+      position: absolute; z-index: 120; left: 50%; bottom: 65px; transform: translateX(-50%) translateY(10px);
+      padding: 9px 16px; border-radius: 5px; background: rgba(14,17,20,.92); color: #f0f0f0;
+      opacity: 0; transition: .2s; pointer-events: none; font-size: 13px;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .paused-mask {
+      position: absolute; inset: 66px 0 32px 0; z-index: 38; display: none; place-items: center;
+      background: rgba(31,35,40,.35); pointer-events: none;
+    }
+    .paused-mask.show { display: grid; }
+    .pause-card {
+      padding: 13px 22px; border-radius: 8px; background: rgba(21,24,28,.91);
+      font-size: 16px; box-shadow: 0 8px 30px rgba(0,0,0,.25);
+    }
+
+    @media(max-width: 1250px) {
+      .top-group.right { min-width: 430px; gap: 4px; }
+      .top-group.right .tool-button { width: 88px; }
+      .strategy-anchor { width: 88px; flex-basis: 88px; }
+      .strategy-anchor > .tool-button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="top-group">
+      <button class="tool-button back-button" data-action="back" aria-label="返回"><span class="ico">‹</span></button>
+      <button class="tool-button" data-action="reset"><span class="ico">↻</span><span class="cap">重置</span></button>
+      <button class="tool-button" data-action="undo"><span class="ico">↶</span><span class="cap">撤销</span></button>
+      <button class="tool-button" data-action="settings"><span class="ico">☷</span><span class="cap">设置</span></button>
+    </div>
+    <div class="title" id="experimentTitle" title="双击修改实验名称">探究浮力的大小与排开液体所受重力的关系</div>
+    <div class="top-group right">
+      <div class="strategy-anchor">
+        <button class="tool-button" id="strategyButton" data-action="strategy" aria-expanded="false"><span class="ico">▤</span><span class="cap">实验攻略</span></button>
+        <section class="strategy-panel" id="strategyPanel">
+          <div class="strategy-title"><span>▤</span>实验攻略</div>
+          <div class="strategy-section">
+            <h3>实验目的</h3>
+            <p>通过实验认识浮力，知道阿基米德原理。</p>
+          </div>
+          <div class="strategy-section">
+            <h3>实验原理</h3>
+            <p>F<sub>浮</sub> = G<sub>排</sub></p>
+          </div>
+          <div class="strategy-section">
+            <h3>实验器材</h3>
+            <p>弹簧测力计、金属块、盛水烧杯、盛盐水烧杯、钩码</p>
+          </div>
+          <div class="strategy-section">
+            <h3>实验步骤</h3>
+            <ol>
+              <li>用测力计测出金属块所受的重力。</li>
+              <li>把被测物体浸没在盛满水的溢水杯中，读出这时测力计的示数。同时，用小桶收集物体排开的水。</li>
+              <li>测出小桶和物体排开的水所受的总重力。</li>
+              <li>测出小桶所受的重力。</li>
+            </ol>
+            <p class="strategy-summary">把测量的实验数据记录在表格中。根据实验数据，看看该物体所受的浮力跟它排开的水所受的重力有什么关系。改换物体，重复实验，看看是否都存在这种关系。</p>
+          </div>
+        </section>
+      </div>
+      <button class="tool-button" data-action="demo"><span class="ico">♜</span><span class="cap">授课演示</span></button>
+      <button class="tool-button" data-action="homework"><span class="ico"><svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="12" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="12" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8.5 13c.7-2 2-3 3.5-3s2.8 1 3.5 3M8 20h8M12 15v5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span><span class="cap">推送学生端</span></button>
+      <button class="tool-button" data-action="share"><span class="ico">♧</span><span class="cap">分享实验</span></button>
+    </div>
+  </header>
+
+  <main class="stage" id="stage">
+    <div class="stage-inner" id="stageInner">
+      <div class="hint" id="hint">先将金属块挂到弹簧测力计上，测出它的重力</div>
+
+      <div class="table" aria-hidden="true">
+        <div class="table-top"></div><div class="apron"></div>
+        <div class="leg l1"></div><div class="leg l2"></div><div class="leg r1"></div><div class="leg r2"></div>
+      </div>
+      <div id="flow"></div>
+      <svg id="trailLayer" viewBox="0 0 1360 820"></svg>
+      <svg id="pendulumLayer" viewBox="0 0 1360 820"><line id="pendulumLine" x1="0" y1="0" x2="0" y2="0"/></svg>
+      <div id="magnifier">⛓<small>100</small></div>
+      <div id="submergeOverlay"></div>
+      <div id="waterRipple"></div>
+
+      <div class="object can" id="can" data-type="can">
+        <div class="object-tools"><button data-mini="settings">⚙</button><button data-mini="reset">↻</button></div>
+        <svg width="305" height="314" viewBox="0 0 305 314">
+          <defs>
+            <linearGradient id="glass" x1="0" x2="1"><stop stop-color="#ecf4f6" stop-opacity=".34"/><stop offset=".13" stop-color="#f7ffff" stop-opacity=".08"/><stop offset=".8" stop-color="#111820" stop-opacity=".12"/><stop offset="1" stop-color="#eefbff" stop-opacity=".42"/></linearGradient>
+            <linearGradient id="water" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#8bcce0" stop-opacity=".30"/><stop offset="1" stop-color="#75bad0" stop-opacity=".13"/></linearGradient>
+            <filter id="soft"><feGaussianBlur stdDeviation=".55"/></filter>
+          </defs>
+          <path d="M12 19 L19 287 Q20 301 35 304 L212 304 Q228 301 228 287 L234 19" fill="url(#glass)" stroke="#c8d0d2" stroke-width="3"/>
+          <path id="canWater" d="M18 111 L229 111 L226 286 Q226 298 212 300 L36 300 Q23 298 22 286 Z" fill="url(#water)"/>
+          <ellipse cx="123" cy="19" rx="112" ry="6" fill="#dce3e4" fill-opacity=".42" stroke="#b9c0c1" stroke-width="2"/>
+          <ellipse cx="123" cy="19" rx="105" ry="3" fill="#222a31" fill-opacity=".42"/>
+          <path d="M230 65 L294 103 L280 124 L229 95 Z" transform="translate(-3,-4)" fill="url(#glass)" stroke="#c4cbcd" stroke-width="3"/>
+          <path d="M230 65 L294 103" transform="translate(-3,-4)" stroke="#fff" stroke-opacity=".38"/>
+          <g stroke="#1c2227" stroke-width="1">
+            <path d="M143 42h39 M153 64h29 M143 86h39 M153 108h29 M143 130h39 M153 152h29 M143 174h39 M153 196h29 M143 218h39 M153 240h29 M143 262h39"/>
+          </g>
+          <g fill="#20262b" font-size="15" font-family="sans-serif">
+            <text x="186" y="47">120</text><text x="186" y="91">100</text><text x="186" y="135">80</text>
+            <text x="186" y="179">60</text><text x="186" y="223">40</text><text x="186" y="267">20</text>
+            <text x="56" y="99" font-size="21">120mL</text><text x="35" y="258" font-size="20">ZK</text>
+          </g>
+        </svg>
+        <span class="read-label" id="canReading">90mL</span>
+      </div>
+
+      <div class="object bucket" id="bucket" data-type="bucket">
+        <div class="object-tools"><button data-mini="settings">⚙</button><button data-mini="reset">↻</button></div>
+        <svg width="115" height="190" viewBox="0 0 115 190">
+          <defs>
+            <linearGradient id="bucketGlass" x1="0" x2="1"><stop stop-color="#f6ffff" stop-opacity=".32"/><stop offset=".2" stop-color="#72828c" stop-opacity=".09"/><stop offset=".85" stop-color="#18232c" stop-opacity=".1"/><stop offset="1" stop-color="#f7ffff" stop-opacity=".28"/></linearGradient>
+            <linearGradient id="bucketWaterFill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#68c5e5" stop-opacity=".52"/><stop offset="1" stop-color="#419fbe" stop-opacity=".32"/></linearGradient>
+          </defs>
+          <path d="M7 75 L19 184 L96 184 L108 75 Z" fill="url(#bucketGlass)" stroke="#858e92" stroke-width="2"/>
+          <path id="bucketWater" d="M16 160 L99 160 L96 181 L19 181 Z" fill="url(#bucketWaterFill)" opacity="0"/>
+          <path d="M7 75 Q12 14 57 14 Q103 14 108 75" fill="none" stroke="#747d82" stroke-width="2"/>
+          <ellipse cx="57" cy="75" rx="50" ry="3" fill="#263038" fill-opacity=".48" stroke="#7a8387"/>
+        </svg>
+        <span class="read-label" id="bucketReading">0.0mL</span>
+      </div>
+
+      <div class="object scale" id="scale" data-type="scale" data-testid="spring-scale">
+        <div class="object-tools"><button class="three-d">3D</button><button data-mini="settings" aria-label="弹簧测力计设置">⚙</button><button data-mini="reset" aria-label="复位弹簧测力计">♜</button></div>
+        <svg width="92" height="282" viewBox="0 0 92 282">
+          <defs>
+            <linearGradient id="greenScale" x1="0" x2="1"><stop stop-color="#087c38"/><stop offset=".22" stop-color="#16c75b"/><stop offset=".73" stop-color="#14ae4e"/><stop offset="1" stop-color="#086a31"/></linearGradient>
+          </defs>
+          <path d="M29 36 V19 Q29 3 46 3 Q63 3 63 19 V36" fill="none" stroke="#bfc4c4" stroke-width="5"/>
+          <circle cx="46" cy="7" r="5" fill="#e3e5e4"/>
+          <path d="M19 38 Q46 25 73 38 L73 210 Q46 228 19 210 Z" fill="url(#greenScale)" stroke="#109d49"/>
+          <path d="M27 47 Q46 36 65 47 L65 194 Q46 205 27 194 Z" fill="#f3f1e6" stroke="#cfd2c9"/>
+          <text x="32" y="60" fill="#384139" font-size="8">N</text><text x="57" y="60" fill="#384139" font-size="8">g</text>
+          <line x1="46" y1="65" x2="46" y2="187" stroke="#222" stroke-width="2"/>
+          <line id="scaleNeedle" x1="38" y1="68" x2="54" y2="68" stroke="#e33131" stroke-width="2"/>
+          <g stroke="#333" stroke-width=".8">
+            <path d="M34 68h7 M36 80h5 M34 92h7 M36 104h5 M34 116h7 M36 128h5 M34 140h7 M36 152h5 M34 164h7 M36 176h5"/>
+            <path d="M51 68h7 M51 80h5 M51 92h7 M51 104h5 M51 116h7 M51 128h5 M51 140h7 M51 152h5 M51 164h7 M51 176h5"/>
+          </g>
+          <g fill="#303632" font-size="7"><text x="28" y="72">0</text><text x="28" y="96">1</text><text x="28" y="120">2</text><text x="28" y="144">3</text><text x="28" y="168">4</text><text x="28" y="190">5</text></g>
+          <line x1="46" y1="218" x2="46" y2="235" stroke="#aeb3b4" stroke-width="4"/>
+          <path d="M46 234 q-11 7 -7 18 q4 10 13 6 q7-4 4-13" fill="none" stroke="#aeb3b4" stroke-width="3"/>
+        </svg>
+        <span class="read-label" id="scaleReading">0.00N</span>
+      </div>
+
+      <div class="object cylinder" id="cylinder" data-type="cylinder">
+        <div class="object-tools"><button data-mini="settings">⚙</button><button data-mini="reset">↻</button></div>
+        <svg width="76" height="115" viewBox="0 0 76 115">
+          <defs><linearGradient id="gold" x1="0" x2="1"><stop stop-color="#915208"/><stop offset=".22" stop-color="#e0a226"/><stop offset=".55" stop-color="#ffc74f"/><stop offset=".8" stop-color="#bd7611"/><stop offset="1" stop-color="#874906"/></linearGradient></defs>
+          <path d="M38 23 V8 q-8 -8 -14 0" fill="none" stroke="#c7c8c7" stroke-width="3"/>
+          <rect x="15" y="23" width="47" height="84" rx="2" fill="url(#gold)"/>
+          <g stroke="#e32924" stroke-width="2"><path d="M15 42h47"/><path d="M15 62h47"/><path d="M15 82h47"/></g>
+          <ellipse cx="38.5" cy="23" rx="23.5" ry="3" fill="#e7ad32"/>
+        </svg>
+        <span class="read-label" id="cylinderReading"></span>
+      </div>
+    </div>
+  </main>
+
+  <aside class="experiment-guide" id="experimentGuide">
+    <div class="guide-title"><span>实验步骤</span><small id="objectName">金属块 A</small></div>
+    <div class="guide-step active" data-step="1" id="step1">测出金属块所受的重力 G</div>
+    <div class="guide-step" data-step="2" id="step2">浸没金属块，记录示数 F，并用小桶收集排开的水</div>
+    <div class="guide-step" data-step="3" id="step3">挂起小桶，测出小桶和排开水的总重力</div>
+    <div class="guide-step" data-step="4" id="step4">倒空小桶，再测出小桶所受的重力</div>
+    <div class="guide-reading"><span>当前测力计示数</span><b id="guideReading">0.00 N</b></div>
+    <div class="guide-actions">
+      <button class="primary-guide" data-action="measure">记录当前读数</button>
+      <button data-action="detach">取下所挂物体</button>
+      <button data-action="empty-bucket">倒空小桶</button>
+      <button data-action="change-object">更换物体</button>
+      <button data-action="report">查看数据表格</button>
+      <button data-action="reset-trial">重新测量本组</button>
+    </div>
+  </aside>
+
+  <div class="paused-mask" id="pausedMask"><div class="pause-card">实验已暂停，再次点击“暂停”继续</div></div>
+
+  <footer class="bottombar">
+    <button class="bottom-pill" data-action="zoom"><span style="font-size:22px">◉</span><span id="zoomText">100%</span>⌃</button>
+    <span class="canvas-tip">按住空格拖动画布 · 滚轮缩放</span>
+  </footer>
+
+  <section class="drawer" id="drawer">
+    <div class="drawer-head"><span class="drawer-title" id="drawerTitle">实验参数</span><button class="xbtn" data-action="close-drawer">×</button></div>
+    <div id="drawerContent"></div>
+  </section>
+
+  <div class="overlay" id="reportOverlay">
+    <div class="modal">
+      <div class="modal-head"><span>实验报告</span><button class="xbtn" data-action="close-report">×</button></div>
+      <div class="modal-body">
+        <div class="report-grid wide" id="reportGrid">
+          <div class="hd">物体</div><div class="hd">重力 G</div><div class="hd">浸没示数 F</div><div class="hd">浮力 G-F</div><div class="hd">桶+排水重力</div><div class="hd">空桶重力</div><div class="hd">排水重力</div>
+          <div class="report-row" id="reportRows"></div>
+        </div>
+        <div class="result" id="reportResult">请先将圆柱挂到测力计上，再缓慢浸入液体中完成实验。</div>
+        <div class="modal-actions"><button class="secondary" data-action="close-report">关闭</button><button class="primary" data-action="change-object">更换物体并重复实验</button></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(() => {
+  const $ = (s, root=document) => root.querySelector(s);
+  const $$ = (s, root=document) => [...root.querySelectorAll(s)];
+  const stageInner = $('#stageInner');
+  const objectEls = Object.fromEntries($$('.object').map(el => [el.id, el]));
+  const defaults = {
+    positions: { can:{x:480,y:215}, bucket:{x:738,y:343}, cylinder:{x:882,y:428}, scale:{x:870,y:28} },
+    params: { mass: 0.36, volume: 40, bucketMass: 0.05, liquidDensity: 1.00, initialWater: 90, maxScale: 5 },
+    scaleSettings: {
+      moveSpeed: 0, showTrail: false, lockMode: '锁定吊环', magnifier: false, moveButton: false,
+      displayType: '力', considerSelfWeight: false, elasticLimit: true, lockDirection: '无', decimals: 2
+    },
+    pendulum: { angle: 0, angularVelocity: 0, length: 58 },
+    attached: false, attachedTarget: null, paused: false, bucketVolume: 0, spilledVolume: 0, maxDisplaced: 0,
+    objectIndex: 0, measurements: { weight:null, immersedTension:null, collectedVolume:null, bucketWaterTotal:null, emptyBucket:null }, records: [],
+    zoom: 1, camera: {x:0,y:0}, selected: null
+  };
+  const objectVariants = [
+    {name:'铜块',mass:.36,volume:40,hue:0,saturation:1.05,brightness:1},
+    {name:'石块',mass:.11,volume:42,hue:-35,saturation:.18,brightness:.72},
+    {name:'铁块',mass:.31,volume:40,hue:165,saturation:.18,brightness:.66},
+    {name:'木块',mass:.03,volume:50,hue:22,saturation:.82,brightness:.9}
+  ];
+  let state = structuredClone(defaults);
+  let history = [], drag = null, toastTimer, hintTimer;
+  let flowUntil = 0, lastFrame = performance.now(), lastCollision = 0, trailClock = 0;
+  let spaceDown=false, panDrag=null;
+  const g = 9.8;
+  const overflowLevel = 90;
+  const defaultExperimentTitle='探究浮力的大小与排开液体所受重力的关系';
+  const experimentTitleKey='buoyancy-lab-title';
+
+  function setExperimentTitle(value, persist=false) {
+    const title=(value||'').trim()||defaultExperimentTitle;
+    $('#experimentTitle').textContent=title;
+    document.title=title;
+    if(persist) {
+      try { localStorage.setItem(experimentTitleKey,title); } catch (_) {}
+    }
+  }
+  function finishTitleEdit() {
+    const el=$('#experimentTitle');
+    if(el.getAttribute('contenteditable')!=='true') return;
+    el.removeAttribute('contenteditable');
+    setExperimentTitle(el.textContent,true);
+  }
+  try { setExperimentTitle(localStorage.getItem(experimentTitleKey)||defaultExperimentTitle); }
+  catch (_) { setExperimentTitle(defaultExperimentTitle); }
+
+  function stageScale() {
+    const r = $('#stage').getBoundingClientRect();
+    return Math.min(r.width / 1360, r.height / 820, 1);
+  }
+  function fitStage() {
+    if (typeof state !== 'undefined') applyCamera();
+  }
+  window.addEventListener('resize', fitStage); fitStage();
+
+  function cameraScale() { return stageScale()*state.zoom; }
+  function applyCamera() {
+    const c=state.camera||{x:0,y:0};
+    stageInner.style.transform = `translate(calc(-50% + ${c.x}px),calc(-50% + ${c.y}px)) scale(${cameraScale()})`;
+  }
+
+  function pushHistory() {
+    history.push(JSON.stringify(state));
+    if (history.length > 30) history.shift();
+  }
+  function restore(raw) {
+    const saved = JSON.parse(raw);
+    state = {
+      ...structuredClone(defaults), ...saved,
+      positions: {...structuredClone(defaults.positions), ...(saved.positions || {})},
+      params: {...structuredClone(defaults.params), ...(saved.params || {})},
+      scaleSettings: {...structuredClone(defaults.scaleSettings), ...(saved.scaleSettings || {})},
+      pendulum: {...structuredClone(defaults.pendulum), ...(saved.pendulum || {})},
+      measurements: {...structuredClone(defaults.measurements), ...(saved.measurements || {})},
+      camera: {...structuredClone(defaults.camera), ...(saved.camera || {})}
+    };
+    if(state.attached && !state.attachedTarget) state.attachedTarget='cylinder';
+    render();
+  }
+  function setPos(id, x, y) {
+    state.positions[id].x = x; state.positions[id].y = y;
+    objectEls[id].style.left = x + 'px'; objectEls[id].style.top = y + 'px';
+  }
+  function getPos(id) { return state.positions[id]; }
+  function rectAt(id) {
+    const el = objectEls[id], p = getPos(id);
+    return { x:p.x, y:p.y, w:el.offsetWidth, h:el.offsetHeight, right:p.x+el.offsetWidth, bottom:p.y+el.offsetHeight };
+  }
+  const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+  // Keep the cup cross-section wider than the metal block so water level and
+  // immersion have one stable physical solution while the block is withdrawn.
+  const volumeToWaterY = volume => 270 - clamp(volume,0,120) * 1.8;
+
+  function scaleHook() {
+    const s = getPos('scale');
+    return { x:s.x + 55, y:s.y + 296 };
+  }
+  function cylinderHook() {
+    const c = getPos('cylinder');
+    return { x:c.x + 38, y:c.y + 8 };
+  }
+  function bucketHook() {
+    const b = getPos('bucket');
+    return { x:b.x + 57, y:b.y + 17 };
+  }
+  function attachedHook() {
+    return state.attachedTarget==='bucket' ? bucketHook() : cylinderHook();
+  }
+  function positionAttachedObject() {
+    if (!state.attached) return;
+    const hook = scaleHook(), p = state.pendulum;
+    const target=state.attachedTarget==='bucket'?'bucket':'cylinder';
+    const offset=target==='bucket'?{x:57,y:17}:{x:38,y:8};
+    setPos(target, hook.x + Math.sin(p.angle) * p.length - offset.x, hook.y + Math.cos(p.angle) * p.length - offset.y);
+  }
+
+  function physics() {
+    const c = rectAt('cylinder'), can = rectAt('can');
+    const cylinderBottom = c.y + 107, cylinderHeight = 84;
+    const horizontalInside = c.x + c.w/2 > can.x + 20 && c.x + c.w/2 < can.x + 228;
+    const remainingWater = Math.max(0,state.params.initialWater-state.spilledVolume);
+    const baseSurfaceVolume=clamp(remainingWater,0,120);
+    const baseWaterY=can.y+volumeToWaterY(baseSurfaceVolume);
+    let visualSubmerged=0, surfaceVolume=baseSurfaceVolume;
+    if(horizontalInside && cylinderBottom>baseWaterY) {
+      // Solve the coupled water-level/displacement relation. The corrected cup
+      // cross-section guarantees a single continuous solution from dry to fully immersed.
+      let low=0, high=1;
+      for(let i=0;i<24;i++) {
+        const fraction=(low+high)/2;
+        const candidateVolume=clamp(Math.min(overflowLevel,remainingWater+state.params.volume*fraction),0,120);
+        const candidateWaterY=can.y+volumeToWaterY(candidateVolume);
+        const geometricFraction=clamp((cylinderBottom-candidateWaterY)/cylinderHeight,0,1);
+        if(geometricFraction>fraction) low=fraction;
+        else high=fraction;
+      }
+      visualSubmerged=(low+high)/2;
+      surfaceVolume=clamp(Math.min(overflowLevel,remainingWater+state.params.volume*visualSubmerged),0,120);
+    }
+    const displacedMl=state.params.volume*visualSubmerged;
+    const waterY=can.y+volumeToWaterY(surfaceVolume);
+    const submerged = state.attachedTarget==='cylinder' ? visualSubmerged : 0;
+    const cylinderWeight = state.params.mass * g + (state.scaleSettings.considerSelfWeight ? .05 : 0);
+    const bucketWeight = (state.params.bucketMass + state.params.liquidDensity*state.bucketVolume/1000) * g;
+    const buoyancy = (state.params.liquidDensity * state.params.volume * submerged / 1000) * g;
+    const weight = state.attachedTarget==='bucket' ? bucketWeight : cylinderWeight;
+    let tension = state.attached ? Math.max(0, weight - buoyancy) : 0;
+    if (state.scaleSettings.elasticLimit) tension = Math.min(tension, state.params.maxScale);
+    return { submerged, visualSubmerged, displacedMl, surfaceVolume, remainingWater, waterY, weight, buoyancy, tension };
+  }
+
+  function render() {
+    Object.entries(state.positions).forEach(([id,p]) => setPos(id,p.x,p.y));
+    $$('.object').forEach(el => el.classList.toggle('selected', state.selected === el.id));
+    objectEls.scale.classList.toggle('attached', state.attached);
+    objectEls.scale.classList.toggle('at-page-top',state.positions.scale.y<0);
+    objectEls.cylinder.classList.toggle('attached', state.attachedTarget==='cylinder');
+    objectEls.bucket.classList.toggle('attached', state.attachedTarget==='bucket');
+    objectEls.cylinder.style.transformOrigin = '38px 8px';
+    objectEls.bucket.style.transformOrigin = '57px 17px';
+    objectEls.cylinder.style.transform = state.attachedTarget==='cylinder' ? `rotate(${state.pendulum.angle * 180 / Math.PI}deg)` : '';
+    objectEls.bucket.style.transform = state.attachedTarget==='bucket' ? `rotate(${state.pendulum.angle * 180 / Math.PI}deg)` : '';
+    const p = physics();
+    const decimals = state.scaleSettings.decimals;
+    $('#canReading').textContent = p.remainingWater.toFixed(1) + 'mL';
+    $('#bucketReading').textContent = state.bucketVolume.toFixed(1) + 'mL';
+    const displayed = state.scaleSettings.displayType === '质量' ? p.tension/g : p.tension;
+    $('#scaleReading').textContent = (state.attached ? displayed : 0).toFixed(decimals) + (state.scaleSettings.displayType === '质量' ? 'kg' : 'N');
+    $('#guideReading').textContent = (state.attached ? p.tension : 0).toFixed(2)+' N';
+    $('#cylinderReading').textContent = state.attached ? '' : '';
+    $('#scaleNeedle').setAttribute('y1', 68 + (p.tension/state.params.maxScale)*116);
+    $('#scaleNeedle').setAttribute('y2', 68 + (p.tension/state.params.maxScale)*116);
+    const canWaterTop = volumeToWaterY(p.surfaceVolume);
+    $('#canWater').setAttribute('d', `M18 ${canWaterTop} L229 ${canWaterTop} L226 286 Q226 298 212 300 L36 300 Q23 298 22 286 Z`);
+    const bucketWater = $('#bucketWater');
+    if (state.bucketVolume > .05) {
+      const top = 181 - Math.min(92, state.bucketVolume / state.params.volume * 72);
+      bucketWater.setAttribute('d', `M${9+top*.045} ${top} L${106-top*.045} ${top} L96 181 L19 181 Z`);
+      bucketWater.setAttribute('opacity', '.9');
+    } else bucketWater.setAttribute('opacity', '0');
+    const can = getPos('can'), bucket = getPos('bucket');
+    $('#flow').style.left = (can.x + 278) + 'px';
+    $('#flow').style.top = (can.y + 103) + 'px';
+    $('#flow').style.height = Math.max(35, bucket.y - can.y - 68) + 'px';
+    $('#flow').classList.toggle('flowing', performance.now() < flowUntil);
+    $('#flow').style.transform = performance.now() < flowUntil ? 'scaleY(1)' : 'scaleY(0)';
+    const hook = scaleHook(), ch = attachedHook(), line = $('#pendulumLine');
+    line.setAttribute('x1',hook.x); line.setAttribute('y1',hook.y);
+    line.setAttribute('x2',ch.x); line.setAttribute('y2',ch.y);
+    line.classList.toggle('visible',state.attached);
+    const mag = $('#magnifier');
+    mag.classList.toggle('show',state.attached && state.scaleSettings.magnifier);
+    const targetPos=state.positions[state.attachedTarget]||state.positions.cylinder;
+    mag.style.left=(targetPos.x+72)+'px'; mag.style.top=(targetPos.y-5)+'px';
+    const overlay=$('#submergeOverlay'), ripple=$('#waterRipple'), canRect=rectAt('can'), cylinderRect=rectAt('cylinder');
+    overlay.classList.toggle('show',p.visualSubmerged>0);
+    const waterTop=canRect.y+canWaterTop;
+    overlay.style.left=(canRect.x+20)+'px'; overlay.style.top=waterTop+'px';
+    overlay.style.width='207px'; overlay.style.height=Math.max(0,canRect.bottom-waterTop-10)+'px';
+    ripple.classList.toggle('show',p.visualSubmerged>0);
+    ripple.style.left=(cylinderRect.x+4)+'px'; ripple.style.top=(waterTop-6)+'px'; ripple.style.width='68px';
+    objectEls.cylinder.style.opacity=p.visualSubmerged>0?String(1-.18*p.visualSubmerged):'1';
+    const variant=objectVariants[state.objectIndex];
+    objectEls.cylinder.style.filter=`hue-rotate(${variant.hue}deg) saturate(${variant.saturation}) brightness(${variant.brightness}) drop-shadow(3px 7px 4px rgba(0,0,0,.26))`;
+    $('#objectName').textContent=objectVariants[state.objectIndex].name;
+    $('#zoomText').textContent = Math.round(state.zoom*100) + '%';
+    applyCamera();
+    $('#pausedMask').classList.toggle('show', state.paused);
+    updateGuide();
+    updateReport();
+  }
+
+  function attachObject(target) {
+    state.attached = true;
+    state.attachedTarget = target;
+    state.pendulum.angle = 0;
+    state.pendulum.angularVelocity = 0;
+    positionAttachedObject();
+    showToast(target==='bucket'?'小桶已挂到测力计上，可记录小桶重力':'金属块已挂到弹簧测力计上，可记录物体重力');
+  }
+  function detachObject() {
+    state.attached = false;
+    state.attachedTarget = null;
+    objectEls.cylinder.style.transform = '';
+    objectEls.bucket.style.transform = '';
+    showToast('已取下所挂物体');
+  }
+
+  function maybeAttach() {
+    if (state.attached) return;
+    const s = rectAt('scale'), c = rectAt('cylinder');
+    const hookX = s.x + 55, hookY = s.y + 296;
+    const cylinderHookX = c.x + 38, cylinderHookY = c.y + 8;
+    const b=rectAt('bucket'), bucketHookX=b.x+57, bucketHookY=b.y+17;
+    if (Math.hypot(hookX-cylinderHookX,hookY-cylinderHookY) < 86) attachObject('cylinder');
+    else if(Math.hypot(hookX-bucketHookX,hookY-bucketHookY)<82) attachObject('bucket');
+  }
+  function bucketUnderSpout() {
+    const b=rectAt('bucket'), can=rectAt('can');
+    const sx=can.x+282, sy=can.y+103;
+    return sx>b.x-30 && sx<b.right+30 && sy<b.y+105;
+  }
+
+  function triggerOverflow(delta) {
+    if (delta <= .001) return;
+    state.spilledVolume += delta;
+    if (bucketUnderSpout()) state.bucketVolume = clamp(state.bucketVolume + delta, 0, 120);
+    flowUntil = performance.now() + 480;
+  }
+  function registerDisplacement() {
+    const p=physics(), displaced=p.displacedMl;
+    // Water can overflow only while the suspended block is actually in the cup.
+    if(state.attachedTarget!=='cylinder' || p.visualSubmerged<=.001) return;
+    const excess=Math.max(0,p.remainingWater+displaced-overflowLevel);
+    // Drain the excess progressively so the surface settles at the overflow
+    // rim instead of dropping below the block in a single frame.
+    if(excess>.001) triggerOverflow(excess*.18);
+    state.maxDisplaced = Math.max(state.maxDisplaced, displaced);
+  }
+  function overlaps(a,b) {
+    return a.x < b.right && a.right > b.x && a.y < b.bottom && a.bottom > b.y;
+  }
+  function resolveCollisions(now=performance.now()) {
+    if (state.attachedTarget!=='cylinder' || now-lastCollision < 75) return;
+    const c=rectAt('cylinder'), can=rectAt('can'), bucket=rectAt('bucket');
+    const cx=c.x+c.w/2;
+    // Use the visible metal body and the real cup walls instead of the SVG bounding boxes.
+    // This keeps the whole center of the cup mouth open when lowering the block from above.
+    const bodyLeft=c.x+15, bodyRight=c.x+62, bodyTop=c.y+23, bodyBottom=c.y+107;
+    const rimY=can.y+19, canOuterLeft=can.x+10, canInnerLeft=can.x+22;
+    const canInnerRight=can.x+224, canOuterRight=can.x+236, canBottom=can.y+295;
+    const clearsMouth=bodyLeft>canInnerLeft && bodyRight<canInnerRight;
+    const verticallyAtCup=bodyBottom>rimY && bodyTop<canBottom;
+    const overlapsLeftWall=bodyRight>=canOuterLeft && bodyLeft<=canInnerLeft;
+    const overlapsRightWall=bodyRight>=canInnerRight && bodyLeft<=canOuterRight;
+    const hitsLeftWall=verticallyAtCup && overlapsLeftWall;
+    const hitsRightWall=verticallyAtCup && overlapsRightWall;
+    const hitsCupBottom=clearsMouth && bodyBottom>canBottom;
+    const tangentV = state.pendulum.angularVelocity * Math.cos(state.pendulum.angle) * state.pendulum.length;
+    const movingImpact = Math.abs(tangentV)>3 || (drag&&drag.id==='scale');
+    if (clearsMouth && bodyBottom>rimY-55 && bodyTop<canBottom) {
+      state.pendulum.angularVelocity*=.94;
+      state.pendulum.angle*=.985;
+    }
+    if (movingImpact && (hitsLeftWall || hitsRightWall || hitsCupBottom)) {
+      const direction = hitsCupBottom ? (Math.sign(tangentV)||1) : (hitsLeftWall ? 1 : -1);
+      const impact = clamp(Math.abs(state.pendulum.angularVelocity)*12+2,2,11);
+      setPos('can',clamp(can.x+direction*impact,0,1055),can.y);
+      state.pendulum.angularVelocity *= -.42;
+      state.pendulum.angle -= direction*.045;
+      lastCollision=now;
+    } else if (movingImpact && overlaps(c,bucket)) {
+      const direction = Math.sign(tangentV) || (cx < bucket.x+bucket.w/2 ? 1 : -1);
+      const impact = clamp(Math.abs(state.pendulum.angularVelocity)*13+2,2,12);
+      setPos('bucket',clamp(bucket.x+direction*impact,0,1245),bucket.y);
+      state.pendulum.angularVelocity *= -.48;
+      lastCollision=now;
+    }
+    const tableTop=492, insideCan=clearsMouth&&bodyTop>rimY-12;
+    if(movingImpact && c.bottom>tableTop && !insideCan) {
+      state.pendulum.angularVelocity *= -.35;
+      state.pendulum.angle *= .94;
+      lastCollision=now;
+    }
+  }
+
+  function onPointerDown(e) {
+    if (state.paused || spaceDown || e.target.closest('.object-tools')) return;
+    const el=e.currentTarget, scale=cameraScale(), p=getPos(el.id);
+    pushHistory();
+    state.selected=el.id;
+    if(el.id===state.attachedTarget && state.attached && state.scaleSettings.lockMode!=='锁定吊环') detachObject();
+    drag={ id:el.id, startX:e.clientX, startY:e.clientY, lastX:e.clientX, lastY:e.clientY, lastT:performance.now(), x:p.x, y:p.y, scale };
+    el.classList.add('dragging'); el.setPointerCapture(e.pointerId); render();
+  }
+  function onPointerMove(e) {
+    if (!drag || drag.id !== e.currentTarget.id) return;
+    const now=performance.now(), dt=Math.max(8,now-drag.lastT);
+    const dx=(e.clientX-drag.lastX)/drag.scale;
+    if(drag.id===state.attachedTarget && state.attached) {
+      const hook=scaleHook();
+      const offset=drag.id==='bucket'?{x:57,y:17}:{x:38,y:8};
+      const px=drag.x+(e.clientX-drag.startX)/drag.scale+offset.x-hook.x;
+      const py=drag.y+(e.clientY-drag.startY)/drag.scale+offset.y-hook.y;
+      state.pendulum.angle=clamp(Math.atan2(px,Math.max(18,py)),-1.3,1.3);
+      state.pendulum.angularVelocity=clamp((dx/dt)*.18,-5,5);
+      positionAttachedObject();
+    } else {
+      const el=objectEls[drag.id], speed=drag.id==='scale'?1+state.scaleSettings.moveSpeed/100:1;
+      let nx=drag.x+(e.clientX-drag.startX)/drag.scale*speed;
+      let ny=drag.y+(e.clientY-drag.startY)/drag.scale*speed;
+      if(drag.id==='can' || (drag.id==='bucket' && state.attachedTarget!=='bucket')) ny=drag.y;
+      if(drag.id!=='scale') {
+        nx=clamp(nx,0,1360-el.offsetWidth);
+        ny=clamp(ny,0,820-el.offsetHeight);
+      }
+      setPos(drag.id,nx,ny);
+      if(drag.id==='scale' && state.attached) {
+        state.pendulum.angularVelocity=clamp(state.pendulum.angularVelocity-(dx/dt)*.24,-5,5);
+        state.pendulum.angle=clamp(state.pendulum.angle-dx*.006,-1.25,1.25);
+        positionAttachedObject();
+      }
+    }
+    drag.lastX=e.clientX; drag.lastY=e.clientY; drag.lastT=now;
+    resolveCollisions(now); registerDisplacement();
+    render();
+  }
+  function onPointerUp(e) {
+    if (!drag) return;
+    e.currentTarget.classList.remove('dragging');
+    const id=drag.id; drag=null;
+    maybeAttach();
+    if (id==='scale' && state.attached) positionAttachedObject();
+    render();
+  }
+  Object.values(objectEls).forEach(el => {
+    el.addEventListener('pointerdown',onPointerDown);
+    el.addEventListener('pointermove',onPointerMove);
+    el.addEventListener('pointerup',onPointerUp);
+    el.addEventListener('pointercancel',onPointerUp);
+    el.addEventListener('dblclick', () => openSettings(el.id));
+  });
+  $('#experimentTitle').addEventListener('dblclick',e=>{
+    e.stopPropagation();
+    const el=e.currentTarget;
+    el.setAttribute('contenteditable','true');
+    el.focus();
+    const selection=window.getSelection(), range=document.createRange();
+    range.selectNodeContents(el); selection.removeAllRanges(); selection.addRange(range);
+  });
+  $('#experimentTitle').addEventListener('blur',finishTitleEdit);
+  $('#experimentTitle').addEventListener('keydown',e=>{
+    if(e.key==='Enter'){ e.preventDefault(); finishTitleEdit(); e.currentTarget.blur(); }
+    if(e.key==='Escape'){ e.preventDefault(); setExperimentTitle(localStorage.getItem(experimentTitleKey)||defaultExperimentTitle); e.currentTarget.removeAttribute('contenteditable'); e.currentTarget.blur(); }
+  });
+
+  $('#stage').addEventListener('pointerdown',e=>{
+    if(!spaceDown || e.button!==0) return;
+    e.preventDefault();
+    panDrag={pointerId:e.pointerId,startX:e.clientX,startY:e.clientY,cameraX:state.camera.x,cameraY:state.camera.y};
+    $('#stage').classList.add('panning'); $('#stage').setPointerCapture(e.pointerId);
+  });
+  $('#stage').addEventListener('pointermove',e=>{
+    if(!panDrag || panDrag.pointerId!==e.pointerId) return;
+    state.camera.x=panDrag.cameraX+e.clientX-panDrag.startX;
+    state.camera.y=panDrag.cameraY+e.clientY-panDrag.startY;
+    applyCamera();
+  });
+  function endPan(e) {
+    if(!panDrag || panDrag.pointerId!==e.pointerId) return;
+    panDrag=null; $('#stage').classList.remove('panning');
+  }
+  $('#stage').addEventListener('pointerup',endPan);
+  $('#stage').addEventListener('pointercancel',endPan);
+  $('#stage').addEventListener('wheel',e=>{
+    e.preventDefault();
+    const rect=$('#stage').getBoundingClientRect(), oldScale=cameraScale();
+    const nextZoom=clamp(state.zoom*Math.exp(-e.deltaY*.0012),.28,3.2);
+    const nextScale=stageScale()*nextZoom, ratio=nextScale/oldScale;
+    const px=e.clientX-rect.left-rect.width/2, py=e.clientY-rect.top-rect.height/2;
+    state.camera.x += (1-ratio)*(px-state.camera.x);
+    state.camera.y += (1-ratio)*(py-state.camera.y);
+    state.zoom=nextZoom; render();
+  },{passive:false});
+
+  function select(id) {
+    state.selected=id; render(); showHint(id==='cylinder'?'拖动金属块顶部圆环靠近测力计挂钩；挂起后拖动测力计可观察真实摆动':'双击器材或点击齿轮可调整参数');
+  }
+  function showHint(text) {
+    const h=$('#hint'); h.textContent=text; h.classList.add('show'); clearTimeout(hintTimer); hintTimer=setTimeout(()=>h.classList.remove('show'),2600);
+  }
+  function showToast(text) {
+    const t=$('#toast'); t.textContent=text; t.classList.add('show'); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),2200);
+  }
+
+  function openSettings(id=state.selected || 'experiment') {
+    state.selected=id==='experiment'?state.selected:id; render();
+    const content=$('#drawerContent'), drawer=$('#drawer');
+    drawer.classList.toggle('scale-settings',id==='scale');
+    if(id==='scale') {
+      const stageRect=$('#stage').getBoundingClientRect(), sf=cameraScale(), s=getPos('scale'), cam=state.camera||{x:0,y:0};
+      const innerLeft=stageRect.left+stageRect.width/2-680*sf+cam.x, innerTop=stageRect.top+stageRect.height/2-410*sf+cam.y;
+      drawer.style.left=clamp(innerLeft+(s.x+150)*sf,100,window.innerWidth-300)+'px';
+      drawer.style.top=clamp(innerTop+(s.y-5)*sf,8,window.innerHeight-610)+'px';
+      drawer.style.right='auto';
+    } else {
+      drawer.style.left='auto'; drawer.style.top='76px'; drawer.style.right='17px';
+    }
+    drawer.classList.add('open');
+    $('#drawerTitle').textContent = id==='cylinder'?'圆柱参数':id==='can'?'液体参数':id==='scale'?'弹簧测力计':id==='bucket'?'小桶参数':'实验参数';
+    let html='';
+    if (id==='cylinder') html += objectTypeHtml() + range('mass','物体质量','kg',.02,.50,.01,state.params.mass) + range('volume','物体体积','mL',20,80,1,state.params.volume);
+    if (id==='experiment') html += range('mass','物体质量','kg',.02,.50,.01,state.params.mass) + range('volume','物体体积','mL',20,80,1,state.params.volume);
+    if (id==='can' || id==='experiment') html += range('liquidDensity','液体密度','g/cm³',.80,1.30,.01,state.params.liquidDensity) + range('initialWater','初始水量','mL',70,110,1,state.params.initialWater);
+    if (id==='scale') html += scaleSettingsHtml();
+    if (id==='experiment') html += range('maxScale','测力计量程','N',3,10,1,state.params.maxScale);
+    if (id==='bucket') html += range('bucketMass','空桶质量','kg',.02,.15,.01,state.params.bucketMass)+`<button class="primary" style="width:100%" data-clear-bucket>倒空小桶</button>`;
+    if(id!=='scale') html += `<div class="drawer-note">提示：双击器材也可打开参数面板。参数变化会实时影响测力计读数和排水结果。</div>`;
+    content.innerHTML=html;
+    $$('input[type=range]',content).forEach(input=>input.addEventListener('input', e=>{
+      if(e.target.dataset.key) {
+        const key=e.target.dataset.key;
+        state.params[key]=Number(e.target.value);
+        if(key==='initialWater') {
+          state.spilledVolume=0; state.maxDisplaced=0; state.bucketVolume=0;
+          state.measurements=structuredClone(defaults.measurements);
+        }
+        const valueEl=e.target.closest('.param')?.querySelector('[data-value]');
+        if(valueEl) valueEl.textContent=formatParam(key,Number(e.target.value));
+      }
+      if(e.target.dataset.setting) {
+        state.scaleSettings[e.target.dataset.setting]=Number(e.target.value);
+        const speed=$('[data-speed-number]',content); if(speed) speed.value=e.target.value;
+      }
+      render();
+    }));
+    $('[data-speed-number]',content)?.addEventListener('input',e=>{
+      if(e.target.value==='' || e.target.value==='-') return;
+      const value=Number(e.target.value);
+      if(!Number.isFinite(value)) return;
+      state.scaleSettings.moveSpeed=clamp(value,-100,100);
+      const slider=$('[data-setting="moveSpeed"]',content);
+      if(slider) slider.value=state.scaleSettings.moveSpeed;
+      render();
+    });
+    $('[data-speed-number]',content)?.addEventListener('change',e=>{
+      const value=Number(e.target.value);
+      state.scaleSettings.moveSpeed=Number.isFinite(value)?clamp(value,-100,100):0;
+      e.target.value=state.scaleSettings.moveSpeed;
+      const slider=$('[data-setting="moveSpeed"]',content);
+      if(slider) slider.value=state.scaleSettings.moveSpeed;
+      render();
+    });
+    $$('[data-setting-select]',content).forEach(el=>el.addEventListener('change',e=>{
+      const key=e.target.dataset.settingSelect;
+      if(key==='maxScale') state.params.maxScale=Number(e.target.value.replace('N',''));
+      else if(key==='objectType') { selectObjectType(e.target.value); openSettings('cylinder'); return; }
+      else state.scaleSettings[key]=e.target.value;
+      render();
+    }));
+    $$('[data-toggle]',content).forEach(el=>el.addEventListener('click',()=>{
+      const key=el.dataset.toggle; state.scaleSettings[key]=!state.scaleSettings[key];
+      if(key==='showTrail' && !state.scaleSettings[key]) $('#trailLayer').innerHTML='';
+      el.classList.toggle('on',state.scaleSettings[key]); render();
+    }));
+    $$('[data-segment]',content).forEach(el=>el.addEventListener('click',()=>{
+      const key=el.dataset.segment;
+      state.scaleSettings[key]=key==='decimals'?Number(el.dataset.value):el.dataset.value;
+      $$(`[data-segment="${key}"]`,content).forEach(x=>x.classList.toggle('active',x.dataset.value===String(state.scaleSettings[key])));
+      render();
+    }));
+    $('[data-clear-bucket]',content)?.addEventListener('click',()=>{ state.bucketVolume=0; render(); showToast('小桶已倒空'); });
+  }
+  function objectTypeHtml() {
+    return `<div class="setting-row"><span>测量物体</span><div class="setting-control"><select data-setting-select="objectType">${objectVariants.map((v,i)=>`<option value="${i}"${i===state.objectIndex?' selected':''}>${v.name}</option>`).join('')}</select></div></div>`;
+  }
+  function selectObjectType(index) {
+    state.objectIndex=Number(index);
+    const v=objectVariants[state.objectIndex]; state.params.mass=v.mass; state.params.volume=v.volume;
+    state.measurements=structuredClone(defaults.measurements); state.bucketVolume=0; state.spilledVolume=0; state.maxDisplaced=0;
+    showToast(`已切换为${v.name}`);
+  }
+  function scaleSettingsHtml() {
+    const s=state.scaleSettings, option=(v,current)=>`<option${String(v)===String(current)?' selected':''}>${v}</option>`;
+    return `
+      <div class="setting-row"><span>移动速度</span><div class="setting-control speed-control"><input class="speed-number" type="number" data-speed-number min="-100" max="100" step="1" value="${s.moveSpeed}"><input type="range" data-setting="moveSpeed" min="-100" max="100" step="1" value="${s.moveSpeed}"></div></div>
+      <div class="setting-row"><span>量程</span><div class="setting-control"><select data-setting-select="maxScale">${[3,5,10].map(v=>option(v+'N',state.params.maxScale+'N')).join('')}</select></div></div>
+      ${toggleRow('开启轨迹','showTrail',s.showTrail)}
+      <div class="setting-row"><span>锁定模式</span><div class="setting-control"><select data-setting-select="lockMode">${['锁定吊环','自由吊环'].map(v=>option(v,s.lockMode)).join('')}</select></div></div>
+      ${toggleRow('放大镜','magnifier',s.magnifier)}
+      ${toggleRow('移动按钮','moveButton',s.moveButton)}
+      <div class="setting-row"><span>显示类型</span><div class="segments"><button data-segment="displayType" data-value="力" class="${s.displayType==='力'?'active':''}">力</button><button data-segment="displayType" data-value="质量" class="${s.displayType==='质量'?'active':''}">质量</button></div></div>
+      ${toggleRow('考虑自重','considerSelfWeight',s.considerSelfWeight)}
+      ${toggleRow('考虑弹性限度','elasticLimit',s.elasticLimit)}
+      <div class="setting-row"><span>保留小数位</span><div class="segments"><button data-segment="decimals" data-value="1" class="${s.decimals===1?'active':''}">1</button><button data-segment="decimals" data-value="2" class="${s.decimals===2?'active':''}">2</button></div></div>`;
+  }
+  function toggleRow(label,key,on) { return `<div class="setting-row"><span>${label}</span><span class="switch ${on?'on':''}" data-toggle="${key}"></span></div>`; }
+  function formatParam(key,v) {
+    return ({mass:v.toFixed(2)+' kg',bucketMass:v.toFixed(2)+' kg',volume:v.toFixed(0)+' mL',liquidDensity:v.toFixed(2)+' g/cm³',initialWater:v.toFixed(0)+' mL',maxScale:v.toFixed(0)+' N'})[key];
+  }
+  function range(key,label,unit,min,max,step,value) {
+    return `<div class="param"><label><span>${label}</span><span data-value>${formatParam(key,value)}</span></label><input type="range" data-key="${key}" min="${min}" max="${max}" step="${step}" value="${value}"></div>`;
+  }
+
+  function addTrailPoint() {
+    if(!state.scaleSettings.showTrail || !state.attached) return;
+    const c=rectAt(state.attachedTarget||'cylinder'), dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    dot.setAttribute('cx',c.x+c.w/2); dot.setAttribute('cy',c.y+c.h/2); dot.setAttribute('r','3'); dot.setAttribute('class','trail-dot');
+    $('#trailLayer').appendChild(dot);
+    while($('#trailLayer').children.length>28) $('#trailLayer').removeChild($('#trailLayer').firstChild);
+  }
+  function animate(now) {
+    const dt=clamp((now-lastFrame)/1000,0,.035); lastFrame=now;
+    if(state.attached && !state.paused && !(drag&&drag.id==='cylinder')) {
+      const p=state.pendulum;
+      p.angularVelocity += (-8.2*Math.sin(p.angle)-1.15*p.angularVelocity)*dt;
+      p.angle=clamp(p.angle+p.angularVelocity*dt,-1.32,1.32);
+      if(Math.abs(p.angularVelocity)<.003 && Math.abs(p.angle)<.003){p.angularVelocity=0;p.angle=0}
+      positionAttachedObject(); resolveCollisions(now); registerDisplacement();
+      trailClock+=dt; if(trailClock>.075){trailClock=0;addTrailPoint()}
+      render();
+    } else if(performance.now()>=flowUntil && $('#flow').classList.contains('flowing')) render();
+    requestAnimationFrame(animate);
+  }
+
+  const measured = v => Number.isFinite(v);
+  const reading = v => measured(v) ? v.toFixed(2)+' N' : '—';
+  function updateGuide() {
+    const m=state.measurements;
+    const done=[measured(m.weight),measured(m.immersedTension),measured(m.bucketWaterTotal),measured(m.emptyBucket)];
+    const active=Math.max(0,done.findIndex(x=>!x));
+    [1,2,3,4].forEach((n,i)=>{
+      const el=$('#step'+n); el.classList.toggle('done',done[i]); el.classList.toggle('active',!done[i]&&i===active);
+    });
+  }
+  function currentRecord() {
+    const m=state.measurements, buoyancy=measured(m.weight)&&measured(m.immersedTension)?m.weight-m.immersedTension:null;
+    const displaced=measured(m.bucketWaterTotal)&&measured(m.emptyBucket)?m.bucketWaterTotal-m.emptyBucket:null;
+    return {name:objectVariants[state.objectIndex].name,...m,buoyancy,displaced};
+  }
+  function syncCompletedRecord() {
+    const r=currentRecord();
+    if([r.weight,r.immersedTension,r.bucketWaterTotal,r.emptyBucket].every(measured)) {
+      state.records=state.records.filter(x=>x.name!==r.name); state.records.push(r);
+    }
+  }
+  function recordCurrentMeasurement() {
+    if(!state.attached) return showToast('请先用测力计挂起金属块或小桶');
+    const p=physics(), m=state.measurements;
+    if(state.attachedTarget==='cylinder') {
+      if(p.submerged>=.96) {
+        if(!measured(m.weight)) return showToast('请先完成步骤1：测出金属块在空气中的重力');
+        if(state.bucketVolume<.05) return showToast('小桶没有接到排开的水，请先将小桶移到溢水口下');
+        m.immersedTension=p.tension; m.collectedVolume=state.bucketVolume;
+        showToast('已记录金属块浸没示数，并确认小桶已收集排开的水');
+      }
+      else if(p.submerged<.05) { m.weight=p.tension; showToast('已记录金属块所受的重力 G'); }
+      else return showToast('请将金属块完全浸没后再记录示数');
+    } else if(state.attachedTarget==='bucket') {
+      if(state.bucketVolume>.05) {
+        if(!measured(m.immersedTension)) return showToast('请先完成步骤2：浸没金属块并收集排开的水');
+        m.bucketWaterTotal=p.tension; showToast('已记录小桶和排开水的总重力');
+      } else {
+        if(!measured(m.bucketWaterTotal)) return showToast('请先完成步骤3：测出小桶和排开水的总重力');
+        m.emptyBucket=p.tension; showToast('已记录空小桶所受的重力');
+      }
+    }
+    syncCompletedRecord(); render();
+  }
+  function emptyBucket() {
+    if(state.bucketVolume>.05 && !measured(state.measurements.bucketWaterTotal)) return showToast('请先记录小桶和排开水的总重力，再倒空小桶');
+    state.bucketVolume=0;
+    showToast('小桶已倒空，可挂到测力计上测空桶重力');
+    render();
+  }
+  function resetTrial() {
+    state.attached=false; state.attachedTarget=null; state.measurements=structuredClone(defaults.measurements);
+    state.bucketVolume=0; state.spilledVolume=0; state.maxDisplaced=0; state.pendulum=structuredClone(defaults.pendulum);
+    state.positions=structuredClone(defaults.positions); $('#trailLayer').innerHTML='';
+    render(); showToast('本组实验已重新开始');
+  }
+  function changeObject() {
+    syncCompletedRecord();
+    state.objectIndex=(state.objectIndex+1)%objectVariants.length;
+    const v=objectVariants[state.objectIndex]; state.params.mass=v.mass; state.params.volume=v.volume;
+    resetTrial(); showToast(`已更换为${v.name}，请重复实验`);
+  }
+  function updateReport() {
+    const current=currentRecord();
+    const rows=state.records.filter(r=>r.name!==current.name);
+    if([current.weight,current.immersedTension,current.bucketWaterTotal,current.emptyBucket].some(measured)) rows.push(current);
+    if(!rows.length) rows.push(current);
+    $('#reportRows').innerHTML=rows.map(r=>`<div>${r.name}</div><div>${reading(r.weight)}</div><div>${reading(r.immersedTension)}</div><div>${reading(r.buoyancy)}</div><div>${reading(r.bucketWaterTotal)}</div><div>${reading(r.emptyBucket)}</div><div>${reading(r.displaced)}</div>`).join('');
+    const completed=rows.filter(r=>measured(r.buoyancy)&&measured(r.displaced));
+    let text='按实验步骤完成四次测量，数据会自动记录在表格中。';
+    if(completed.length) {
+      const allMatch=completed.every(r=>Math.abs(r.buoyancy-r.displaced)<.05);
+      text=allMatch
+        ?`已完成 ${completed.length} 组实验。实验表明：物体所受的浮力，等于物体排开的水所受的重力。`
+        :'部分数据偏差较大，请检查金属块是否完全浸没、小桶是否接住全部溢出的水。';
+    }
+    $('#reportResult').textContent=text;
+  }
+
+  function reset(all=true) {
+    pushHistory();
+    const params=all?structuredClone(defaults.params):state.params;
+    state=structuredClone(defaults); state.params=params; render(); $('#drawer').classList.remove('open');
+    showToast(all?'实验已重置':'器材位置已复原');
+  }
+  function undo() { if(!history.length)return showToast('没有可撤销的操作'); restore(history.pop()); }
+  function togglePause() { state.paused=!state.paused; render(); $$('.mode')[3].classList.toggle('active',state.paused); }
+  function closeStrategy() {
+    $('#strategyPanel').classList.remove('open');
+    $('#strategyButton').setAttribute('aria-expanded','false');
+  }
+  function toggleStrategy() {
+    const open=$('#strategyPanel').classList.toggle('open');
+    $('#strategyButton').setAttribute('aria-expanded',String(open));
+    if(open) $('#drawer').classList.remove('open');
+  }
+
+  function handleAction(action) {
+    const actions={
+      reset:()=>reset(true), undo,
+      settings:()=>openSettings('experiment'), report:()=>$('#reportOverlay').classList.add('open'),
+      'close-report':()=>$('#reportOverlay').classList.remove('open'),
+      'close-drawer':()=>$('#drawer').classList.remove('open'),
+      zoom:()=>{state.zoom=state.zoom>=1.2?.8:state.zoom+.1;render()},
+      demo:()=>showHint('请按照右侧实验步骤依次完成四次测量'),
+      measure:recordCurrentMeasurement, detach:detachObject, 'empty-bucket':emptyBucket,
+      'change-object':changeObject, 'reset-trial':resetTrial,
+      hotspots:()=>{ $$('.object').forEach(el=>el.classList.add('selected')); setTimeout(render,1600); showToast('可拖动和双击设置的器材已高亮'); },
+      strategy:toggleStrategy,
+      homework:()=>showToast('实验已推送至学生端（演示功能）'), share:()=>showToast('分享功能仅在联网平台中可用'),
+      unavailable:()=>showToast('该器材不属于当前实验，未添加到实验台'), record:recordCurrentMeasurement,
+      back:()=>showToast('当前为独立实验页面')
+    };
+    actions[action]?.();
+  }
+  document.addEventListener('click', e => {
+    const action=e.target.closest('[data-action]')?.dataset.action;
+    if(action) handleAction(action);
+    const focus=e.target.closest('[data-focus]')?.dataset.focus;
+    if(focus) select(focus);
+    const mini=e.target.closest('[data-mini]');
+    if(mini) {
+      e.stopPropagation(); const id=mini.closest('.object').id;
+      if(mini.dataset.mini==='settings') openSettings(id);
+      if(mini.dataset.mini==='reset') {
+        state.positions[id]=structuredClone(defaults.positions[id]);
+        if(id===state.attachedTarget){state.attached=false;state.attachedTarget=null}
+        render();
+      }
+    }
+    if(!e.target.closest('#strategyPanel')&&!e.target.closest('[data-action="strategy"]')) closeStrategy();
+  });
+  document.addEventListener('keydown',e=>{
+    if(e.code==='Space' && !e.repeat && !['INPUT','SELECT','TEXTAREA','BUTTON'].includes(document.activeElement?.tagName)){
+      e.preventDefault(); spaceDown=true; $('#stage').classList.add('space-ready');
+    }
+    if(e.key==='Escape'){ $('#drawer').classList.remove('open');$('#reportOverlay').classList.remove('open');closeStrategy();state.selected=null;render(); }
+    if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z')undo();
+  });
+  document.addEventListener('keyup',e=>{
+    if(e.code==='Space'){spaceDown=false;panDrag=null;$('#stage').classList.remove('space-ready','panning')}
+  });
+  window.addEventListener('blur',()=>{spaceDown=false;panDrag=null;$('#stage').classList.remove('space-ready','panning')});
+  $('#reportOverlay').addEventListener('click',e=>{if(e.target.id==='reportOverlay')handleAction('close-report')});
+
+  render();
+  requestAnimationFrame(animate);
+  setTimeout(()=>showHint('步骤1：拖动金属块顶部圆环靠近测力计挂钩，然后记录重力'),700);
+})();
+</script>
+</body>
+</html>
